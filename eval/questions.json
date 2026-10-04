@@ -1,0 +1,91 @@
+[
+  {
+    "id": "q01",
+    "category": "financas",
+    "question": "Quais os 10 filmes com maior receita em R$?",
+    "reference_sql": "SELECT m.titulo, f.receita_brl FROM fact_movies_performance f JOIN dim_movies m USING(sk_movie_id) WHERE f.receita_brl IS NOT NULL ORDER BY f.receita_brl DESC LIMIT 10"
+  },
+  {
+    "id": "q02",
+    "category": "financas",
+    "question": "Qual o lucro médio por gênero, considerando apenas filmes com receita informada?",
+    "reference_sql": "SELECT g.nome_genero, ROUND(AVG(f.lucro_brl),2) AS lucro_medio_brl FROM fact_movies_performance f JOIN bridge_movie_genre b USING(sk_movie_id) JOIN dim_genres g USING(sk_genre_id) WHERE f.receita_brl IS NOT NULL GROUP BY g.nome_genero ORDER BY lucro_medio_brl DESC"
+  },
+  {
+    "id": "q03",
+    "category": "financas",
+    "question": "Quais os 10 filmes com maior margem de lucro, entre os que possuem receita e orçamento informados?",
+    "reference_sql": "SELECT m.titulo, ROUND(f.lucro_brl*100.0/f.receita_brl,2) AS margem_pct FROM fact_movies_performance f JOIN dim_movies m USING(sk_movie_id) WHERE f.receita_brl > 0 AND f.orcamento_brl IS NOT NULL ORDER BY f.lucro_brl*1.0/f.receita_brl DESC, f.receita_brl DESC LIMIT 10",
+    "match": "metric"
+  },
+  {
+    "id": "q04",
+    "category": "popularidade",
+    "question": "Quais os 5 filmes mais populares?",
+    "reference_sql": "SELECT m.titulo, f.popularidade FROM fact_movies_performance f JOIN dim_movies m USING(sk_movie_id) WHERE f.popularidade IS NOT NULL ORDER BY f.popularidade DESC LIMIT 5"
+  },
+  {
+    "id": "q05",
+    "category": "popularidade",
+    "question": "Quais os 10 filmes com maior divergência entre a nota TMDB e a nota IMDb?",
+    "reference_sql": "SELECT m.titulo, f.nota_tmdb, f.nota_imdb, ROUND(ABS(f.nota_tmdb-f.nota_imdb),2) AS divergencia FROM fact_movies_performance f JOIN dim_movies m USING(sk_movie_id) WHERE f.nota_tmdb > 0 AND f.nota_imdb > 0 ORDER BY ABS(f.nota_tmdb-f.nota_imdb) DESC LIMIT 10",
+    "match": "metric"
+  },
+  {
+    "id": "q06",
+    "category": "popularidade",
+    "question": "Qual a nota média IMDb por ano de lançamento?",
+    "reference_sql": "SELECT m.ano_lancamento, ROUND(AVG(f.nota_imdb),2) AS nota_media_imdb FROM fact_movies_performance f JOIN dim_movies m USING(sk_movie_id) WHERE f.nota_imdb > 0 GROUP BY m.ano_lancamento ORDER BY m.ano_lancamento"
+  },
+  {
+    "id": "q07",
+    "category": "elenco",
+    "question": "Qual o ator com mais participações em filmes lançados nos últimos 5 anos?",
+    "reference_sql": "SELECT p.nome_pessoa, COUNT(DISTINCT m.sk_movie_id) AS filmes FROM dim_movies m JOIN bridge_movie_person b USING(sk_movie_id) JOIN dim_people p USING(sk_person_id) WHERE p.tipo_pessoa = 'Ator' AND m.status_filme = 'Lançado' AND m.ano_lancamento > CAST(strftime('%Y','now') AS INTEGER) - 5 GROUP BY p.sk_person_id ORDER BY filmes DESC LIMIT 1"
+  },
+  {
+    "id": "q08",
+    "category": "elenco",
+    "question": "Quais os 10 diretores com maior nota média IMDb (mínimo de 5 filmes)?",
+    "reference_sql": "SELECT p.nome_pessoa, ROUND(AVG(f.nota_imdb),2) AS nota_media, COUNT(*) AS filmes FROM fact_movies_performance f JOIN bridge_movie_person b USING(sk_movie_id) JOIN dim_people p USING(sk_person_id) WHERE p.tipo_pessoa = 'Diretor' AND f.nota_imdb > 0 GROUP BY p.sk_person_id HAVING COUNT(*) >= 5 ORDER BY nota_media DESC LIMIT 10",
+    "match": "metric"
+  },
+  {
+    "id": "q09",
+    "category": "elenco",
+    "question": "Qual a dupla ator–diretor que mais trabalhou junta?",
+    "reference_sql": "WITH freq AS (SELECT sk_person_id FROM bridge_movie_person GROUP BY sk_person_id HAVING COUNT(*) >= 10), atores AS (SELECT b.sk_movie_id, b.sk_person_id FROM bridge_movie_person b JOIN freq USING (sk_person_id) JOIN dim_people p USING (sk_person_id) WHERE p.tipo_pessoa = 'Ator'), diretores AS (SELECT b.sk_movie_id, b.sk_person_id FROM bridge_movie_person b JOIN freq USING (sk_person_id) JOIN dim_people p USING (sk_person_id) WHERE p.tipo_pessoa = 'Diretor'), top AS (SELECT a.sk_person_id AS ator_id, d.sk_person_id AS diretor_id, COUNT(*) AS filmes FROM atores a JOIN diretores d USING (sk_movie_id) GROUP BY a.sk_person_id, d.sk_person_id ORDER BY filmes DESC LIMIT 1) SELECT pa.nome_pessoa AS ator, pd.nome_pessoa AS diretor, t.filmes FROM top t JOIN dim_people pa ON pa.sk_person_id = t.ator_id JOIN dim_people pd ON pd.sk_person_id = t.diretor_id"
+  },
+  {
+    "id": "q10",
+    "category": "generos_produtoras",
+    "question": "Quantos filmes existem por gênero?",
+    "reference_sql": "SELECT g.nome_genero, COUNT(*) AS qtd_filmes FROM bridge_movie_genre b JOIN dim_genres g USING(sk_genre_id) GROUP BY g.nome_genero ORDER BY qtd_filmes DESC"
+  },
+  {
+    "id": "q11",
+    "category": "generos_produtoras",
+    "question": "Qual a produtora com maior lucro total?",
+    "reference_sql": "SELECT c.nome_produtora, ROUND(SUM(f.lucro_brl),2) AS lucro_total_brl FROM fact_movies_performance f JOIN bridge_movie_company b USING(sk_movie_id) JOIN dim_companies c USING(sk_company_id) WHERE f.receita_brl IS NOT NULL GROUP BY c.sk_company_id ORDER BY lucro_total_brl DESC LIMIT 1"
+  },
+  {
+    "id": "q12",
+    "category": "generos_produtoras",
+    "question": "Qual o gênero com maior margem de lucro média?",
+    "reference_sql": "SELECT g.nome_genero, ROUND(SUM(f.lucro_brl)*100.0/SUM(f.receita_brl),2) AS margem_pct FROM fact_movies_performance f JOIN bridge_movie_genre b USING(sk_movie_id) JOIN dim_genres g USING(sk_genre_id) WHERE f.receita_brl > 0 AND f.orcamento_brl IS NOT NULL GROUP BY g.nome_genero ORDER BY margem_pct DESC LIMIT 1"
+  },
+  {
+    "id": "q13",
+    "category": "avaliacoes",
+    "question": "Quais os 10 filmes mais avaliados pelos usuários?",
+    "reference_sql": "SELECT m.titulo, r.qtd_avaliacoes_usuarios FROM dim_reviews r JOIN dim_movies m USING(sk_movie_id) ORDER BY r.qtd_avaliacoes_usuarios DESC LIMIT 10",
+    "match": "metric"
+  },
+  {
+    "id": "q14",
+    "category": "avaliacoes",
+    "question": "Quais os 10 filmes em que a nota média dos usuários mais diverge da nota IMDb?",
+    "reference_sql": "SELECT m.titulo, ROUND(r.nota_media_usuarios,2) AS nota_usuarios, f.nota_imdb, ROUND(ABS(r.nota_media_usuarios-f.nota_imdb),2) AS divergencia FROM dim_reviews r JOIN fact_movies_performance f USING(sk_movie_id) JOIN dim_movies m USING(sk_movie_id) WHERE r.nota_media_usuarios > 0 AND f.nota_imdb > 0 ORDER BY ABS(r.nota_media_usuarios-f.nota_imdb) DESC LIMIT 10",
+    "match": "metric"
+  }
+]

@@ -1,0 +1,13 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+cinerocket.db
+cinerocket*.db
+data/cache.json
+data/usage.json
+eval/results.json
+*.db-shm
+*.db-wal
+*.db-journal
